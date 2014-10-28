@@ -1,0 +1,27 @@
+Describe any design decisions you made, including your choice of page eviction policy. If you used something other than a nested-loops join, describe the tradeoffs of the algorithm you chose.
+
+	I decided to use a random eviction policy because it was the easiest to implement and wrap my head around. I wanted to implement LRU but I could not make it work. I think that a trade off is that a randomly accessed page might not be the most efficient way because then if we evict pages that are being used and will be used soon, then we'd have to bring them back into the Buffer Pool and that would increase the number of I/Os we have. But on the positive side, it was easier to implement and there are fewer possible bugs.
+
+	I used the nested loop join. This is probably slower because it's probably n^2 time, because we are checking every outer tuple with every inner tuple. We could probably do some query optimization thing like pushing things down the tree ino rder to make it so that we are using less time. However, this method is harder.
+
+Discuss and justify any changes you made to the API.
+
+	I used the Lab1 given solution because I did not trust my own code, because some of it had failed. And this time, I tried to use my own code for BufferPool but the getPage made my evictPages fail so I decided to use the solution code for that method.
+
+Describe any missing or incomplete elements of your code.
+
+	There are no missing or incomplete elements of my code for Lab2.
+
+Describe briefly who worked on what (if you worked with a partner).
+
+	I recieved general abstract help from Jiexi in that she helped me get closer to understanding what IntegerAggregate is supposed to do. And also what the difference between a groupby field and an aggregate field is. 
+
+	I also recieved help from Alejandro Mendoza in understanding that I needed to use a HashMap (other data structures would work too but a HashMap was the easiest) and why I needed to use it. He went through an example with me: for example, if we see one Alejandro, we get the age of him and write his age down. But if we see another alejandro and we see that the second age is greater than the first, and we are trying to look for the alejandro with the max age, then we would need to replace the current max. Also, the HashMap is useful if we need to have different key for different groups. For example, if we grouped by name and did a count, then we would need to have a key for Alejandro and a count of how many Alejandros exist corresponding to that key.
+
+	At the end of the project, I also got help from Shannon Lin in debugging my evictpages() method in BufferPool.java. I helped her come up with her eviction policy but my evictpages did not work. So we compared our BufferPool to see what was different. It turned out that my getPage() was the cause of all my problems. Hers worked because she used the solution so I just changed my getPage to match the solution.  
+
+Describe how long you (and your partner) spent on the lab, and whether there was anything you found particularly difficult or confusing.
+
+	I spent 10+ hours on the lab, including time I spent in classes looking at it and talking to other people about the lab. 
+
+	I found the Aggregate classes to be particularly confusing because I had no idea what it was supposed to be doing and the write ups were not very clear. However, the worked on it for a long time and eventually figured out that I needd 
