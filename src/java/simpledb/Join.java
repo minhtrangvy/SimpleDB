@@ -6,11 +6,19 @@ import java.util.*;
  * The Join operator implements the relational join operation.
  */
 public class Join extends Operator {
+	
+	public JoinPredicate _predicate;
+	public DbIterator _child1;
+	public DbIterator _child2;
+	
+	boolean hasNext = true;
+	boolean needToRead = true;
+	Tuple outerTuple = null;
 
     private static final long serialVersionUID = 1L;
 
     /**
-     * Constructor. Accepts to children to join and the predicate to join them
+     * Constructor. Accepts two children to join and the predicate to join them
      * on
      * 
      * @param p
@@ -21,12 +29,14 @@ public class Join extends Operator {
      *            Iterator for the right(inner) relation to join
      */
     public Join(JoinPredicate p, DbIterator child1, DbIterator child2) {
-        // some code goes here
+//    	System.out.println("in join constructor");
+        this._predicate = p;
+        this._child1 = child1;
+        this._child2 = child2;
     }
 
     public JoinPredicate getJoinPredicate() {
-        // some code goes here
-        return null;
+        return this._predicate;
     }
 
     /**
@@ -35,8 +45,7 @@ public class Join extends Operator {
      *       alias or table name.
      * */
     public String getJoinField1Name() {
-        // some code goes here
-        return null;
+        return this._child1.getTupleDesc().getFieldName(_predicate.getField1());
     }
 
     /**
@@ -45,8 +54,7 @@ public class Join extends Operator {
      *       alias or table name.
      * */
     public String getJoinField2Name() {
-        // some code goes here
-        return null;
+        return this._child2.getTupleDesc().getFieldName(_predicate.getField1());
     }
 
     /**
@@ -54,21 +62,28 @@ public class Join extends Operator {
      *      implementation logic.
      */
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        TupleDesc tupleDescChild1 = this._child1.getTupleDesc();
+        TupleDesc tupleDescChild2 = this._child2.getTupleDesc();
+        TupleDesc merged = TupleDesc.merge(tupleDescChild1, tupleDescChild2);
+        return merged;
     }
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
-        // some code goes here
+//    	System.out.println("in join open");
+        this._child1.open();
+        this._child2.open();
+        super.open();
     }
 
     public void close() {
-        // some code goes here
+        this._child1.close();
+        this._child2.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        // some code goes here
+        this._child1.rewind();
+        this._child2.rewind();
     }
 
     /**
@@ -85,24 +100,85 @@ public class Join extends Operator {
      * <p>
      * For example, if one tuple is {1,2,3} and the other tuple is {1,5,6},
      * joined on equality of the first column, then this returns {1,2,3,1,5,6}.
-     * 
+     * f
      * @return The next matching tuple.
      * @see JoinPredicate#filter
      */
     protected Tuple fetchNext() throws TransactionAbortedException, DbException {
-        // some code goes here
+    	
+    	// First time we run the program, we need to get the first tuple
+    	if (needToRead) {
+    		// so we check if child1 has a next
+    		if (this._child1.hasNext()) {
+    			hasNext = true;
+    		}
+    	}
+//    	System.out.println("in fetchNext: hasNext is " + hasNext + " and needToRead is " + needToRead);
+    	
+    	    	
+    	// while there are more tuples in the outer relation
+    	while (hasNext) {
+    	    
+    		// if we need to read this outer tuple
+    		if (needToRead) {
+    			// we call next to get the actual first tuple
+    			outerTuple = this._child1.next();
+//        	    System.out.println("OUTER tuple is " + outerTuple.toString());
+    		}
+
+        	// while there are more tuples in the inner relation
+    		while (this._child2.hasNext()) {
+
+    			// grab the next inner tuple 
+    			Tuple innerTuple = this._child2.next();
+//        	    System.out.println("inner tuple is " + innerTuple.toString());
+
+    			// check if the tuples satisfy the join condition
+    			if (this._predicate.filter(outerTuple, innerTuple)) {
+    				
+    				Tuple newTuple = new Tuple(this.getTupleDesc());
+    				
+    				// join tuples
+    				int index = 0;
+    				for (int i = 0; i < outerTuple.getTupleDesc().numFields(); i ++) {
+    					newTuple.setField(i, outerTuple.getField(i));
+    					index++;
+    				}
+    				for (int j = 0; j < innerTuple.getTupleDesc().numFields(); j ++ ) {
+    					newTuple.setField(index, innerTuple.getField(j));
+    					index++;
+    				}
+    				
+    				// we just read the current tuple combination, no need to do it again
+    				needToRead = false;
+    				
+    				return newTuple;
+    			}
+    		}
+    		// rewind inner tuple iterator and rest variables
+//        	System.out.println("in fetchNext END whileloop");
+
+    		this._child2.rewind();
+    		hasNext = this._child1.hasNext();
+    		needToRead = true;
+    	}
+//    	System.out.println("in fetchNext END");
+
         return null;
     }
 
     @Override
     public DbIterator[] getChildren() {
-        // some code goes here
-        return null;
+        DbIterator[] children = new DbIterator[2];
+        children[0] = this._child1;
+        children[1] = this._child2;
+        return children;
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        // some code goes here
+        this._child1 = children[0];
+        this._child2 = children[1];
     }
 
 }

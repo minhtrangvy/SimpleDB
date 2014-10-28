@@ -154,14 +154,19 @@ public class TestUtil {
      */
     public static boolean checkExhausted(DbIterator it)
         throws TransactionAbortedException, DbException {
+//    	System.out.println("in check exhausted");
 
-        if (it.hasNext()) return false;
+        if (it.hasNext()) {
+//        	System.out.println("we still have more!!!");
+        	return false;
+        }
 
         try {
             Tuple t = it.next();
-            System.out.println("Got unexpected tuple: " + t);
+//            System.out.println("Got unexpected tuple: " + t);
             return false;
         } catch (NoSuchElementException e) {
+//        	System.out.println("we dont have more!!!");
             return true;
         }
     }

@@ -1,6 +1,11 @@
 package simpledb;
 
 import java.io.*;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Random;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -33,8 +38,8 @@ public class BufferPool {
      * @param numPages maximum number of pages in this buffer pool.
      */
     public BufferPool(int numPages) {
-       maxPages = numPages;
-       pool = new ConcurrentHashMap <PageId, Page>();
+       this.maxPages = numPages;
+       this.pool = new ConcurrentHashMap <PageId, Page>();
     }
     
     public static int getPageSize() {
@@ -56,27 +61,42 @@ public class BufferPool {
      * @param pid the ID of the requested page
      * @param perm the requested permissions on the page
      */
-    public  Page getPage(TransactionId tid, PageId pid, Permissions perm) 
-    	throws TransactionAbortedException, DbException {
-    	//note to self: figure out how does the DbException work? when is it thrown?
-    	
-		Page page;
-	    // look to see if pid is already in buffer pool
-		// if yes, return the page from the pool
-		if (pool.containsKey(pid)) {
-			page = pool.get(pid); 
-			
-		} else {
-			// if no, find the page in the database (probably on disk)
-			DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
-			// actually read the page
-			page = file.readPage(pid);
-			// put the page in the pool
-			pool.put(pid, page);
-		}
-		return page;
-		}
-
+//    public  Page getPage(TransactionId tid, PageId pid, Permissions perm) 
+//    	throws TransactionAbortedException, DbException {
+//    	//note to self: figure out how does the DbException work? when is it thrown?
+//    	
+//		Page page;
+//	    // look to see if pid is already in buffer pool
+//		// if yes, return the page from the pool
+//		if (pool.containsKey(pid)) {
+//			page = pool.get(pid); 
+//			
+//		} else {
+//			// if no, find the page in the database (probably on disk)
+//			DbFile file = Database.getCatalog().getDatabaseFile(pid.getTableId());
+//			// actually read the page
+//			page = file.readPage(pid);
+//			// put the page in the pool
+//			pool.put(pid, page);
+//		}
+//		return page;
+//		}
+    public Page getPage(TransactionId tid, PageId pid, Permissions perm)
+            throws TransactionAbortedException, DbException {
+        	Page p;
+            synchronized(this) {
+                p = pool.get(pid);
+                if (p == null) {
+                    if (pool.size() >= maxPages) {
+                        this.evictPage();
+                    }
+                    p = Database.getCatalog().getDatabaseFile(pid.getTableId()).readPage(pid);
+                    pool.put(pid, p);
+                }
+            }
+            return p;
+        }
+    
     /**
      * Releases the lock on a page.
      * Calling this is very risky, and may result in wrong behavior. Think hard
@@ -137,8 +157,24 @@ public class BufferPool {
      */
     public void insertTuple(TransactionId tid, int tableId, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
-        // some code goes here
-        // not necessary for lab1
+        // add a tuple to the specified table on behalf of transaction id
+    	
+    	// To add a tuple to a table, we have to find the file
+    	HeapFile desiredFile = (HeapFile) Database.getCatalog().getDatabaseFile(tableId);
+    	// heapfile insert returns an arraylist of changed pages
+    	ArrayList<Page> desiredPages = desiredFile.insertTuple(tid, t);
+    	
+    	// marks any pages that were modified as dirty
+    	int numPages = desiredPages.size();
+    	for (int i = 0; i < numPages; i++) {
+    		
+    		Page desiredPage = desiredPages.get(i);
+    		desiredPage.markDirty(true, tid);
+    		
+        	// update cached versions of any pages that have been dirtied
+        	// --> meaning update the buffer pool
+    		pool.put(desiredPage.getId(), desiredPage);
+    	}
     }
 
     /**
@@ -155,8 +191,29 @@ public class BufferPool {
      */
     public  void deleteTuple(TransactionId tid, Tuple t)
         throws DbException, IOException, TransactionAbortedException {
-        // some code goes here
-        // not necessary for lab1
+        // remove tuple from buffer pool
+    	
+    	// to find the file, we have to find the table id from the tuple
+    	int tableId = t.getRecordId().getPageId().getTableId();
+    	// To add a tuple to a table, we have to find the file
+    	HeapFile desiredFile = (HeapFile) Database.getCatalog().getDatabaseFile(tableId);
+    	// heapfile insert returns an arraylist of changed pages
+    	ArrayList<Page> desiredPages = desiredFile.deleteTuple(tid, t);
+    	
+    	// marks any pages that were modified as dirty
+//    	int numPages = desiredPages.size();
+//    	for (int i = 0; i < numPages; i++) {
+//    		
+//    		Page desiredPage = desiredPages.get(i);
+//    		desiredPage.markDirty(true, tid);
+    		
+        	// update cached versions of any pages that have been dirtied
+        	// --> meaning update the buffer pool
+//    		pool.put(desiredPage.getId(), desiredPage);
+//    	}
+    	
+    	HeapPage desiredPage = (HeapPage) desiredPages.get(0);
+    	desiredPage.markDirty(true, tid);
     }
 
     /**
@@ -165,8 +222,16 @@ public class BufferPool {
      *     break simpledb if running in NO STEAL mode.
      */
     public synchronized void flushAllPages() throws IOException {
-        // some code goes here
-        // not necessary for lab1
+        // we have a function called flush page
+    	// so we can just call that
+    	// on all the pages in the bufferpool
+    	
+    	// find pids because that's what flush page takes in
+    	// pages are denoted by their pids
+    	// and bufferpool is represented by a map so just get all keys of bufferpool
+    	Set<PageId> pages = pool.keySet();
+    	Iterator<PageId> currentPage = pages.iterator();
+    	while (currentPage.hasNext()) this.flushPage(currentPage.next());
 
     }
 
@@ -185,8 +250,15 @@ public class BufferPool {
      * @param pid an ID indicating the page to flush
      */
     private synchronized  void flushPage(PageId pid) throws IOException {
-        // some code goes here
-        // not necessary for lab1
+        // write dirty page to disk
+    	Page currentPage = this.pool.get(pid);
+    	
+    	if (currentPage.isDirty() != null) {
+	    	HeapFile writeToFile = (HeapFile) Database.getCatalog().getDatabaseFile(pid.getTableId());
+	    	writeToFile.writePage(currentPage);
+	    	// mark as not dirty 
+	    	currentPage.markDirty(false, null);
+    	}
     }
 
     /** Write all pages of the specified transaction to disk.
@@ -200,9 +272,24 @@ public class BufferPool {
      * Discards a page from the buffer pool.
      * Flushes the page to disk to ensure dirty pages are updated on disk.
      */
-    private synchronized  void evictPage() throws DbException {
-        // some code goes here
-        // not necessary for lab1
-    }
+	private synchronized void evictPage() throws DbException {
+//        // Need to generate a random page from all the pages in the buffer pool
+//    	// referencing: http://stackoverflow.com/questions/1247915/how-to-generate-a-random-number-with-java-from-given-list-of-numbers
+//    	
+//    	// so grab all the page ids:
+    	List<PageId> pagelist = new ArrayList<PageId>(pool.keySet());
+    	int arraySize = pagelist.size();
+    	Random random = new Random();
+    	int randomNum = random.nextInt(arraySize);
+    	PageId pid = pagelist.get(randomNum);
 
+    	if (pool.get(pid).isDirty() != null) {
+        	try {
+    			if (pool.get(pid).isDirty() != null) flushPage(pid);
+    		} catch (IOException e) {
+    			e.printStackTrace();
+    		}
+    	}
+    	pool.remove(pid);
+    }
 }

@@ -6,6 +6,8 @@ import java.util.*;
  * Filter is an operator that implements a relational select.
  */
 public class Filter extends Operator {
+	public Predicate _predicate;
+	public DbIterator _iterator;
 
     private static final long serialVersionUID = 1L;
 
@@ -19,30 +21,31 @@ public class Filter extends Operator {
      *            The child operator
      */
     public Filter(Predicate p, DbIterator child) {
-        // some code goes here
+        this._predicate = p;
+        this._iterator = child;
     }
 
     public Predicate getPredicate() {
-        // some code goes here
-        return null;
+        return this._predicate;
     }
 
     public TupleDesc getTupleDesc() {
-        // some code goes here
-        return null;
+        return this._iterator.getTupleDesc();
     }
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
-        // some code goes here
+        this._iterator.open();
+        super.open();
     }
 
     public void close() {
-        // some code goes here
+        this._iterator.close();
+        super.close();
     }
 
     public void rewind() throws DbException, TransactionAbortedException {
-        // some code goes here
+        this._iterator.rewind();
     }
 
     /**
@@ -56,19 +59,26 @@ public class Filter extends Operator {
      */
     protected Tuple fetchNext() throws NoSuchElementException,
             TransactionAbortedException, DbException {
-        // some code goes here
+        
+        while (this._iterator.hasNext()) {
+        	Tuple next = this._iterator.next();
+        	if (this._predicate.filter(next)) {
+        		return next;
+        	}
+        }
         return null;
     }
 
     @Override
     public DbIterator[] getChildren() {
-        // some code goes here
-        return null;
+       return new DbIterator[] { this._iterator };
     }
 
     @Override
     public void setChildren(DbIterator[] children) {
-        // some code goes here
+        if (this._iterator != children[0]) {
+        	this._iterator = children[0];
+        }
     }
 
 }

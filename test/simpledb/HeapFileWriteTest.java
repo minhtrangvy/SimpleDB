@@ -27,14 +27,19 @@ public class HeapFileWriteTest extends TestUtil.CreateHeapFile {
      */
     @Test public void addTuple() throws Exception {
         // we should be able to add 504 tuples on an empty page.
+    	
+//    	System.out.println("FILLING FIRST PAGE");
         for (int i = 0; i < 504; ++i) {
             empty.insertTuple(tid, Utility.getHeapTuple(i, 2));
             assertEquals(1, empty.numPages());
         }
-
+        
+//    	System.out.println("FILLING SECOND PAGE");
         // the next 512 additions should live on a new page
         for (int i = 0; i < 504; ++i) {
+//        	System.out.println("numpages is " + empty.numPages());
             empty.insertTuple(tid, Utility.getHeapTuple(i, 2));
+//        	System.out.println("numpages is " + empty.numPages());
             assertEquals(2, empty.numPages());
         }
 

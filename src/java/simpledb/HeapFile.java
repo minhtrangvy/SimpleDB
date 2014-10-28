@@ -96,8 +96,12 @@ public class HeapFile implements DbFile {
 
     // see DbFile.java for javadocs
     public void writePage(Page page) throws IOException {
-        // some code goes here
-        // not necessary for lab1
+        RandomAccessFile randFile = new RandomAccessFile(file, "rws"); //so we can read and write and seek
+        PageId pid = page.getId();
+        int pageNo = pid.pageNumber();
+        randFile.seek(pageNo * BufferPool.PAGE_SIZE);
+        randFile.write(page.getPageData());
+        randFile.close();
     }
 
     /**
@@ -106,24 +110,87 @@ public class HeapFile implements DbFile {
     public int numPages() {
     	//we have to calculate the number of pages by bytes
     	long totalBytes = file.length();
-    	int numPages = (int) (totalBytes/BufferPool.PAGE_SIZE);
+    	int numPages = (int) Math.ceil(totalBytes/BufferPool.PAGE_SIZE);
         return numPages;
     }
 
     // see DbFile.java for javadocs
     public ArrayList<Page> insertTuple(TransactionId tid, Tuple t)
             throws DbException, IOException, TransactionAbortedException {
-        // some code goes here
+    	
+        //* @throws IOException if the needed file can't be read/written TODO
+
+    	
+    	// create an array list of pages because that's what we need to return
+    	ArrayList<Page> result = new ArrayList<Page>();
+    	
+    	boolean inserted = false;
+    	int numPages = this.numPages();
+//    	System.out.println("number of pages is " + numPages);
+
+        // loop through the pages
+    	for (int potentialPage = 0; potentialPage < numPages; potentialPage++) {
+//    		System.out.println("looping thru page");
+
+    		// call current page from buffer pool
+    		PageId currentPid = new HeapPageId(this.getId(), potentialPage);
+    		BufferPool buffer = Database.getBufferPool();
+            HeapPage currentPage = (HeapPage) buffer.getPage(tid, currentPid, Permissions.READ_WRITE);
+           
+        	// if there is space, then call page insert on that page
+            if (currentPage.getNumEmptySlots() > 0) {  
+//        		System.out.println("num empty slots is " + currentPage.getNumEmptySlots());
+
+            	currentPage.insertTuple(t);
+            	inserted = true;
+            	result.add(currentPage);
+            	
+            	// return the page
+                return result;
+            }	
+    	}	
+    	    	
+    	// if we need to create a page
+    	if (!inserted) {
+//    		System.out.println("creating new page");
+    		// create a page with the correct page number
+    		HeapPageId newPid = new HeapPageId(this.getId(), numPages);
+    		HeapPage newPage = new HeapPage(newPid, HeapPage.createEmptyPageData());
+    		
+    		// then just use page insert to add the tuple to that page
+    		newPage.insertTuple(t);
+    		
+    		// then we have to actually add the new page to the entire file
+    		// by grabbing the file and editing it
+          RandomAccessFile randFile = new RandomAccessFile(file, "rw"); // lets us read and write to file
+          randFile.seek(numPages * BufferPool.PAGE_SIZE);
+          randFile.write(newPage.getPageData(), 0, BufferPool.PAGE_SIZE);
+          randFile.close();
+            result.add(newPage);
+            
+            // return result
+            return result;
+            
+    	}
+    	
         return null;
-        // not necessary for lab1
     }
 
     // see DbFile.java for javadocs
     public ArrayList<Page> deleteTuple(TransactionId tid, Tuple t) throws DbException,
             TransactionAbortedException {
-        // some code goes here
-        return null;
-        // not necessary for lab1
+        
+    	// create an array list to return
+    	ArrayList<Page> result = new ArrayList<Page>();
+    	// find the page the tuple lives on
+    	PageId pageid = t.getRecordId().getPageId();
+		BufferPool buffer = Database.getBufferPool();
+        HeapPage currentPage = (HeapPage) buffer.getPage(tid, pageid, Permissions.READ_WRITE);
+    	
+    	// call page deleteTuple
+        currentPage.deleteTuple(t);
+        result.add(currentPage);
+        return result;
     }
 
     // see DbFile.java for javadocs

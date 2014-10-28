@@ -12,6 +12,7 @@ public abstract class Operator implements DbIterator {
     private static final long serialVersionUID = 1L;
 
     public boolean hasNext() throws DbException, TransactionAbortedException {
+
         if (!this.open)
             throw new IllegalStateException("Operator not yet open");
         
@@ -59,6 +60,7 @@ public abstract class Operator implements DbIterator {
     private int estimatedCardinality = 0;
 
     public void open() throws DbException, TransactionAbortedException {
+//    	System.out.println("In operator open");
         this.open = true;
     }
 

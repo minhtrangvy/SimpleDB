@@ -47,6 +47,8 @@ public class Project extends Operator {
 
     public void open() throws DbException, NoSuchElementException,
             TransactionAbortedException {
+    	System.out.println("in parser open");
+
         child.open();
         super.open();
     }

@@ -127,6 +127,15 @@ public class AggregateTest extends SimpleDbTestBase {
   @Test public void sumStringGroupBy() throws Exception {
     Aggregate op = new Aggregate(scan3, 1, 0,
         Aggregator.Op.SUM);
+    
+    // look at contents of scan3	
+//    while (scan3.hasNext()) {
+//    	Tuple t = scan3.next();
+//    	System.out.println("tuple\n\t0th field (group by field): "+
+//    		t.getField(0) +"\n\t1st field (agg field): "+
+//    		t.getField(1));
+//    }
+    
     op.open();
     sumstring.open();
     TestUtil.matchAllTuples(sumstring, op);

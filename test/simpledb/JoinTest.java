@@ -76,10 +76,13 @@ public class JoinTest extends SimpleDbTestBase {
     }
     assertTrue(TestUtil.checkExhausted(op));
     op.rewind();
-
     eqJoin.open();
+
     Tuple expected = eqJoin.next();
+//    System.out.println("expected is " + expected.toString());
+    
     Tuple actual = op.next();
+//    System.out.println("op NEXT act is " + actual.toString());
     assertTrue(TestUtil.compareTuples(expected, actual));
   }
 

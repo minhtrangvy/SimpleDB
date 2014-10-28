@@ -48,8 +48,10 @@ public class HeapPageWriteTest extends SimpleDbTestBase {
      * Unit test for HeapPage.addTuple()
      */
     @Test public void addTuple() throws Exception {
+    	
         HeapPage page = new HeapPage(pid, HeapPageReadTest.EXAMPLE_DATA);
         int free = page.getNumEmptySlots();
+//    	System.out.println("free is " + free);
 
         // NOTE(ghuo): this nested loop existence check is slow, but it
         // shouldn't make a difference for n = 504 slots.
@@ -57,22 +59,31 @@ public class HeapPageWriteTest extends SimpleDbTestBase {
         for (int i = 0; i < free; ++i) {
             Tuple addition = Utility.getHeapTuple(i, 2);
             page.insertTuple(addition);
+//            System.out.println("num empty slooots is " + page.getNumEmptySlots());
+
             assertEquals(free-i-1, page.getNumEmptySlots());
+        	
+//            System.out.println("i is " + i + " and free is " + free);
+
 
             // loop through the iterator to ensure that the tuple actually exists
             // on the page
-            Iterator<Tuple >it = page.iterator();
+            Iterator<Tuple> it = page.iterator();
             boolean found = false;
+            
+            // why doesnt the hasnext work TODO
             while (it.hasNext()) {
                 Tuple tup = it.next();
                 if (TestUtil.compareTuples(addition, tup)) {
+//                	System.out.println("they are the same");
                     found = true;
 
-                    // verify that the RecordId is sane
+                    // verify that the RecordId is same
                     assertEquals(page.getId(), tup.getRecordId().getPageId());
                     break;
                 }
             }
+            
             assertTrue(found);
         }
 
@@ -99,14 +110,19 @@ public class HeapPageWriteTest extends SimpleDbTestBase {
      */
     @Test public void deleteTuple() throws Exception {
         HeapPage page = new HeapPage(pid, HeapPageReadTest.EXAMPLE_DATA);
+
         int free = page.getNumEmptySlots();
+//        System.out.println("num empty slots 0 is " + page.getNumEmptySlots());
 
         // first, build a list of the tuples on the page.
         Iterator<Tuple> it = page.iterator();
         LinkedList<Tuple> tuples = new LinkedList<Tuple>();
-        while (it.hasNext())
+        while (it.hasNext()) {
             tuples.add(it.next());
+        }
         Tuple first = tuples.getFirst();
+        
+//        System.out.println("num empty slots 1 is " + page.getNumEmptySlots());
 
         // now, delete them one-by-one from both the front and the end.
         int deleted = 0;
@@ -114,6 +130,8 @@ public class HeapPageWriteTest extends SimpleDbTestBase {
             page.deleteTuple(tuples.removeFirst());
             page.deleteTuple(tuples.removeLast());
             deleted += 2;
+//            System.out.println("free is " + free + " and deleted is " + deleted);
+//            System.out.println("num empty slots is " + page.getNumEmptySlots());
             assertEquals(free + deleted, page.getNumEmptySlots());
         }
 
